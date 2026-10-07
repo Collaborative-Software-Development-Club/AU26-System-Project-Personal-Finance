@@ -65,6 +65,7 @@ Repositories → Database Operations
 SQLAlchemy → asyncpg
   ↓
 PostgreSQL
+```
 
 ## Migration and Database Setup
 
@@ -72,7 +73,7 @@ Running Docker (from repo root):
 docker compose up -d
 
 Database migrations (from `backend/`):
-uv run alembic upgrade head
+uv run alembic upgrade head -m "message"
 
 Create a new migration after changing models in `src/finance/models/`:
 uv run alembic revision --autogenerate -m "describe change"
