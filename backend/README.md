@@ -2,6 +2,14 @@
 
 Backend API for a personal finance application built as a learning project for backend systems, databases, concurrency, and reliable data handling.
 
+## Setup
+Environments:
+Copy setup backend/.env using backend/.env.example.
+**See Migration Setup Below**
+
+Running API:
+uv run uvicorn finance.main:app --reload
+
 ## Tech Stack
 
 - **Python 3.13** — Main programming language.
@@ -58,9 +66,16 @@ SQLAlchemy → asyncpg
   ↓
 PostgreSQL
 
+## Migration and Database Setup
 
-Running Docker:
+Running Docker (from repo root):
 docker compose up -d
+
+Database migrations (from `backend/`):
+uv run alembic upgrade head
+
+Create a new migration after changing models in `src/finance/models/`:
+uv run alembic revision --autogenerate -m "describe change"
 
 Running API:
 uv run uvicorn finance.main:app --reload
