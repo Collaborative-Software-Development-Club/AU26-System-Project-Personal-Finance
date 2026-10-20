@@ -76,6 +76,8 @@ uv run alembic upgrade head
 
 Create a new migration after changing models in `src/finance/models/`:
 uv run alembic revision --autogenerate -m "describe change"
+Check alembic/versions/ was updated correctly
+uv run alembic upgrade head
 
 Running API:
 uv run uvicorn finance.main:app --reload
