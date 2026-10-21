@@ -1,6 +1,11 @@
 # Personal Finance Backend
 
-Backend API for a personal finance application built as a learning project for backend systems, databases, concurrency, and reliable data handling.
+Backend API for a personal finance application built as a learning project for
+backend systems, databases, concurrency, and reliable data handling.
+
+The React UI lives in [`../frontend`](../frontend/README.md) and talks to this
+API (today it uses an in-browser mock; swap `MockFinanceApi` for HTTP when
+these routes are ready).
 
 ## Setup
 Environments:

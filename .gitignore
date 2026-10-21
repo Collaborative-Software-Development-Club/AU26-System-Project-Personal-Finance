@@ -13,15 +13,31 @@ __pycache__/
 .env
 .env.*
 !.env.example
+*.local
 
-# Node
+# Node / Vite
 node_modules/
 dist/
+dist-ssr/
 .vite/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
 # IDE
 .vscode/
 .idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
 # OS
 .DS_Store
@@ -32,5 +48,5 @@ Thumbs.db
 htmlcov/
 coverage.xml
 
-# AI Agents for frontend
+# AI Agents
 .cursor/
