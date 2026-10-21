@@ -4,7 +4,17 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <meta name="description" content="Ledger — personal finance dashboard (frontend demo with mock data)." />
+    <title>Ledger · Personal Finance</title>
+    <script>
+      // Apply the stored theme before first paint to avoid a flash (see src/app/theme.tsx).
+      try {
+        var t = localStorage.getItem('pf.theme');
+        var dark = t === 'dark' || ((t === null || t === 'system') && matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
