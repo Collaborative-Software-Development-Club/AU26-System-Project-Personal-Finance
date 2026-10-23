@@ -21,6 +21,19 @@ export function AppLayout() {
     if (status === 'idle') void load()
   }, [status, load])
 
+  // Test backend api call
+  useEffect(() => {
+  fetch('http://localhost:8000/health')
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`Health request failed: ${response.status}`)
+      const health = await response.json()
+      console.log('Backend health:', health)
+    })
+    .catch((error: unknown) => {
+      console.error('Backend health check failed:', error)
+    })
+}, [])
+
   return (
     <PageHeaderProvider>
       <div className="min-h-dvh bg-background">
