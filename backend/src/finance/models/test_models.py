@@ -1,8 +1,10 @@
 from sqlalchemy import create_engine
 # 1. IMPORT ALL YOUR MODELS HERE so SQLAlchemy registers them to metadata
-from my_project.models.base import Base 
-from my_project.models.customer import Customer
-from my_project.models.ticket import TicketOrder
+from finance.db.base import Base
+from finance.db.base import Account
+from finance.db.base import Base
+from finance.db.base import Base
+from finance.db.base import Base
 
 def test_models():
     # 2. Create an in-memory database engine

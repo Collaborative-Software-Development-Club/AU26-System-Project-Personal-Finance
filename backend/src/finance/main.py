@@ -21,6 +21,11 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...)) -> dict[str, str]:
-    # Process the uploaded file here
-    return {"filename": file.filename, "content_type": file.content_type}
+async def upload_file(
+    payload: ChunkPayload, 
+    idempotency_key: str = Header(...), 
+    db: Session = Depends(get_db)
+):
+    #TODO Check for idempotency key in database(do not upload repeated data)
+    #TODO Process the uploaded file data here
+    return {"status": "success", "message": f"Chunk {payload.chunk_index} saved"}
