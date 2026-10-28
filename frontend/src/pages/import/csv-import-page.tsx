@@ -34,6 +34,9 @@ import {
   type ValidationResult,
 } from './csv-import-logic'
 
+// Temporary API upload file spot
+import { uploadFile } from '@/api/upload-file'
+
 type Step = 1 | 2 | 3 | 4 | 5 | 6
 
 const STEPS: { id: Step; label: string }[] = [
@@ -95,6 +98,16 @@ export default function CsvImportPage() {
   // Handlers ----------------------------------------------------------------
   const onFileSelected = async (picked: File) => {
     const problem = validateCsvFile(picked)
+
+    // Temp call to the API to upload it to the backend
+    try {
+      const uploadResponse = await uploadFile(picked)
+      console.log('Uploaded filename:', uploadResponse.filename)
+      console.log('Uploaded content type:', uploadResponse.content_type)
+    } catch (error) {
+      console.error('Error uploading file:', error)
+    }
+
     setFile(picked)
     setParsed(null)
     setOutcome(null)
