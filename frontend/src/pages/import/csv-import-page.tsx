@@ -35,7 +35,7 @@ import {
 } from './csv-import-logic'
 
 // Temporary API upload file spot
-import { uploadFile } from '@/api/upload-file'
+import { uploadCSV } from '@/api/upload-file'
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6
 
@@ -101,7 +101,7 @@ export default function CsvImportPage() {
 
     // Temp call to the API to upload it to the backend
     try {
-      const uploadResponse = await uploadFile(picked)
+      const uploadResponse = await uploadCSV(picked)
       console.log('Uploaded filename:', uploadResponse.filename)
       console.log('Uploaded content type:', uploadResponse.content_type)
     } catch (error) {
