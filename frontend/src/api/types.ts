@@ -105,7 +105,7 @@ export interface ImportRowInput {
   notes: string | null
 }
 
-export interface ImportInput {
+ export interface ImportInput {
   fileName: string
   /** Default account when a row has none. */
   accountId: Id | null
