@@ -20,6 +20,10 @@ app.add_middleware(
 async def health() -> dict[str, str]:
     return {"status": "ok"}
 
+@app.post("/login_check")
+async def loginCheckin(username: str, password: str) -> bool:
+    return True
+
 @app.post("/upload")
 async def upload_file(
     payload: ChunkPayload, 
