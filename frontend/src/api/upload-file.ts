@@ -14,8 +14,15 @@ export async function uploadFile(file: File): Promise<UploadResponse> {
     body: formData,
   })
 
-  if (!response.ok) {
-    throw new Error(`File upload failed: ${response.status} ${response.statusText}`)
+  const result = await response.json();
+
+  if (response.ok){
+    console.log("Import Complete:", result.message);
+    alert(result.message);
+  }
+  else{
+    console.error(`File upload failed: ${response.status} ${response.statusText}`)
+    alert("Error: " + result.detail);
   }
 
   return (await response.json()) as UploadResponse
