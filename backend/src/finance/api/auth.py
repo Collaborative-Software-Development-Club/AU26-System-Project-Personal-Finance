@@ -2,14 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from finance.db.session import get_db
-from finance.schemas.auth import LoginRequest
+from finance.schemas.auth import LoginRequest, RegisterRequest
 from finance.services import auth as auth_service
 
 
 # Defining our auth routing group
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-
+"""
+Route for Login Requests.
+"""
 @router.post("/login")
 async def login(
     body: LoginRequest,
@@ -28,3 +30,13 @@ async def login(
             status_code=401,
             detail="Invalid email or password",
         ) from None
+
+"""
+Route for Registration Requests.
+"""
+@router.post("/register")
+async def register(body: RegisterRequest):
+    raise HTTPException(
+        status_code=501,
+        detail="Registration is not implemented yet",
+    )
