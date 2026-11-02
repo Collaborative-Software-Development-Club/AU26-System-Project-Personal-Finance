@@ -2,6 +2,7 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
+from finance.api.auth import router as auth_router
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +21,8 @@ class ChunkPayload(BaseModel):
 
 
 app = FastAPI(title="Personal Finance API")
+
+app.include_router(auth_router)
 
 app.add_middleware(
     CORSMiddleware,
