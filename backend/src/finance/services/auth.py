@@ -74,20 +74,17 @@ async def register(
 
     async with db.begin():
 
-        # Then we see if we have an existing user with the given email
-        existing_user = await users_repository.find_by_email(db, email)
-
-        # If the email is already registered in our db, then we raise an error
-        if existing_user is not None:
-            raise EmailAlreadyRegisteredError()
-
-        # Then we create our user using our helper function
+        # Adding our user to our db. If there is a conflict it is handled at insertion.
         user = await users_repository.create_user(
             db,
             name,
             email,
             password_hash,
         )
+
+        # If the email is already registered in our db, then we raise an error
+        if user is None:
+            raise EmailAlreadyRegisteredError()
 
     # Finally we return our user object
     return user

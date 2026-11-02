@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.dialects.postgresql import insert
 
 from finance.models.user import User
 
@@ -24,27 +25,27 @@ async def find_by_email(
 
 
 """
-Creates our user object and places it in our database.
+Creates our user object and places it in our database. Handles 
+conflicts if a user makes 2 users of the same email.
 """
 async def create_user(
         db: AsyncSession,
         name: str,
         email: str,
         password_hash: str,
-) -> User:
+) -> User | None:
 
-    # Creating our user object
-    user = User(
-        name=name,
-        email=email,
-        password_hash=password_hash,
+    # Creating our user object. On the event of conflict we will skip this insertion.
+    statement = (
+        insert(User).values(
+            name=name,
+            email=email,
+            password_hash=password_hash,
+        ).on_conflict_do_nothing(index_elements=[User.email]).returning(User)
     )
 
-    # Stages the user to be added to the database during the next write
-    db.add(user)
+    # If we have our result we will execute the insertion into our database directly
+    result = await db.execute(statement)
 
-    # Execute the database insetion
-    await db.flush()
-
-    # Finally we return our user object
-    return user
+    # Returning our resulting user object if we have one and None otherwise
+    return result.scalar_one_or_none()
