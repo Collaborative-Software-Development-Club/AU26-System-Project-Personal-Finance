@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from finance.db.session import get_db
@@ -15,4 +15,16 @@ async def login(
     body: LoginRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    return await auth_service.login(body.email, body.password)
+
+    # Logging in, if we get invalid credentials then we will raise and error.
+    try:
+        return await auth_service.login(
+            db,
+            body.email,
+            body.password,
+        )
+    except auth_service.InvalidCredentialsError:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password",
+        ) from None
