@@ -58,6 +58,9 @@ function lucideFileName(exportName: string): string {
 
 export default defineConfig({
   plugins: [lucideReactUnbarrel(), react(), tailwindcss()],
+  server: {
+    proxy: { '/api': { target: 'http://localhost:8000', rewrite: (p) => p.replace(/^\/api/, '') } },
+  },
   resolve: {
     alias: {
       '@': path.resolve(rootDir, './src'),
