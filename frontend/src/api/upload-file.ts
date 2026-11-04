@@ -3,9 +3,9 @@ interface CsvRow {
 }
 
 interface ChunkPayload {
-  uploadId: string;      // Identifies the overall file upload session
-  chunkIndex: number;    // The sequential order of this batch
-  rows: CsvRow[];
+  upload_id: string
+  chunk_index: number
+  rows: CsvRow[]
 }
 
 export function generateIdempotencyKey(): string {
@@ -59,10 +59,10 @@ export async function uploadCSV(file: File): Promise<any> {
 
         // Package the entire file as a single tracking chunk (index 0)
         const payload: ChunkPayload = {
-          uploadId: crypto.randomUUID(), // Generates a unique ID for this entire file session
-          chunkIndex: 0,
-          rows: parsedRows
-        };
+          upload_id: crypto.randomUUID(),
+          chunk_index: 0,
+          rows: parsedRows,
+        }
 
         // Hand off the payload to your existing upload function
         const result = await uploadFile(payload);

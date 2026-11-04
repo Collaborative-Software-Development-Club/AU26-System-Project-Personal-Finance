@@ -14,8 +14,8 @@ Db = Annotated[AsyncSession, Depends(get_db)]
 
 
 class ChunkPayload(BaseModel):
-    uploadId: str
-    chunkIndex: int
+    upload_id: str
+    chunk_index: int
     rows: list[dict[str, Any]]
 
 
@@ -72,10 +72,10 @@ async def list_transactions(db: Db) -> list[dict[str, Any]]:
 @app.post("/upload")
 async def upload_file(
     payload: ChunkPayload,
-    idempotency_key: str = Header(...),
     db: Db,
+    idempotency_key: str = Header(...),
 ) -> dict[str, str]:
     _ = db, idempotency_key
     # TODO: check idempotency_key against DB to prevent duplicate uploads
     # TODO: persist payload.rows via ImportJob/ImportedRow models
-    return {"status": "success", "message": f"Chunk {payload.chunkIndex} saved"}
+    return {"status": "success", "message": f"Chunk {payload.chunk_index} saved"}
