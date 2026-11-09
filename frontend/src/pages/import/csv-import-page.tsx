@@ -103,7 +103,7 @@ export default function CsvImportPage() {
     try {
       const uploadResponse = await uploadFile(picked)
       console.log('Uploaded filename:', uploadResponse.filename)
-      console.log('Uploaded content type:', uploadResponse.content_type)
+      console.log(' Uploaded content type:', uploadResponse.content_type)
     } catch (error) {
       console.error('Error uploading file:', error)
     }
