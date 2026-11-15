@@ -4,10 +4,11 @@ from starlette.concurrency import run_in_threadpool
 from finance.models.user import User
 from finance.core.security import hash_password, verify_password
 from finance.repositories import users as users_repository
+from finance.services import sessions as sessions_service
 
 
 """
-Defining our dummy hash password that I will use for testing purposes.
+Defining our dummy hash to perform verification when an email is not registered.
 """
 DUMMY_HASH = hash_password("dummy-password-for-missing-users")
 
@@ -33,32 +34,38 @@ async def login(
         db: AsyncSession,
         email: str,
         password: str,
-) -> dict[str, str]:
+) -> sessions_service.CreatedSession:
 
-    # First we get our user object from the repository
-    user = await users_repository.find_by_email(db,email)
+    # Commit session creation only after credentials have been verified.
+    async with db.begin():
 
-    # Then we get our stored hash for the user if we have one (Will remove dummy hash when it works)
-    stored_hash = DUMMY_HASH if user is None else user.password_hash
+        # First we get our user object from the repository
+        user = await users_repository.find_by_email(db, email)
 
-    # Then we verify the password matches using verify_password in a worker thread
-    password_matches = await run_in_threadpool(
-        verify_password,
-        password,
-        stored_hash,
-    )
+        # Then we get our stored hash, or the dummy hash if no user was found
+        stored_hash = DUMMY_HASH if user is None else user.password_hash
 
-    # Raising an error if either our user or our password doesn't match
-    if user is None or not password_matches:
-        raise InvalidCredentialsError()
+        # Then we verify the password matches using verify_password in a worker thread
+        password_matches = await run_in_threadpool(
+            verify_password,
+            password,
+            stored_hash,
+        )
 
-    # If we have a matching user and pass, then we will return credentials verified
-    return {"message": "Credentials verified; session not implemented yet"}
+        # Raising an error if either our user or our password doesn't match
+        if user is None or not password_matches:
+            raise InvalidCredentialsError()
+
+        # If we have a matching user and password, create their login session
+        created_session = await sessions_service.create_session(
+            db,
+            user.id,
+        )
+
+    # Return the session token and expiration after the transaction commits
+    return created_session
 
 
-"""
-
-"""
 async def register(
         db: AsyncSession,
         name: str,
