@@ -1,5 +1,7 @@
 from typing import Annotated, Any
 
+from finance.api.dependencies import get_current_user
+from finance.models.user import User
 from fastapi import Depends, FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
 from finance.api.auth import router as auth_router
@@ -11,6 +13,8 @@ from finance.db.session import get_db
 from finance.models import Account, Transaction
 
 Db = Annotated[AsyncSession, Depends(get_db)]
+
+CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 class ChunkPayload(BaseModel):
@@ -40,7 +44,13 @@ async def health() -> dict[str, str]:
 
 
 @app.get("/accounts")
-async def list_accounts(db: Db) -> list[dict[str, Any]]:
+async def list_accounts(
+    db: Db,
+    user: CurrentUser,
+) -> list[dict[str, Any]]:
+    rows = await db.scalars(
+        select(Account).where(Account.user_id == user.id)
+    )
     rows = await db.scalars(select(Account))
     return [
         {
@@ -54,7 +64,17 @@ async def list_accounts(db: Db) -> list[dict[str, Any]]:
 
 
 @app.get("/transactions")
-async def list_transactions(db: Db) -> list[dict[str, Any]]:
+async def list_transactions(
+    db: Db,
+    user: CurrentUser,
+) -> list[dict[str, Any]]:
+    statement = (
+        select(Transaction)
+        .join(Account, Transaction.account_id == Account.id)
+        .where(Account.user_id == user.id)
+    )
+
+    rows = await db.scalars(statement)
     rows = await db.scalars(select(Transaction))
     return [
         {
