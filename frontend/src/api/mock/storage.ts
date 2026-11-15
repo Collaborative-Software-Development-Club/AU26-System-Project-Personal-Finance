@@ -39,11 +39,11 @@ function getStorage(): Storage | null {
   }
 }
 
-export function readSnapshot(): FinanceSnapshot | null {
+export function readSnapshot(storageKey = MOCK_DB_STORAGE_KEY): FinanceSnapshot | null {
   const storage = getStorage()
   if (!storage) return null
   try {
-    const raw = storage.getItem(MOCK_DB_STORAGE_KEY)
+    const raw = storage.getItem(storageKey)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<StoredPayload>
     if (parsed.version !== MOCK_DB_VERSION || !looksLikeSnapshot(parsed.snapshot)) return null
@@ -53,12 +53,12 @@ export function readSnapshot(): FinanceSnapshot | null {
   }
 }
 
-export function writeSnapshot(snapshot: FinanceSnapshot): void {
+export function writeSnapshot(snapshot: FinanceSnapshot, storageKey = MOCK_DB_STORAGE_KEY): void {
   const storage = getStorage()
   if (!storage) return
   const payload: StoredPayload = { version: MOCK_DB_VERSION, savedAt: new Date().toISOString(), snapshot }
   try {
-    storage.setItem(MOCK_DB_STORAGE_KEY, JSON.stringify(payload))
+    storage.setItem(storageKey, JSON.stringify(payload))
   } catch {
     // Quota exceeded or storage disabled — the in-memory copy keeps working.
   }

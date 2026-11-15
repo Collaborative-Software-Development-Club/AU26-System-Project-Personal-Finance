@@ -116,3 +116,7 @@ export const COLOR_SWATCHES = [
 
 export const NAME_MAX_LENGTH = 200
 export const DESCRIPTION_MAX_LENGTH = 500
+
+export const EMAIL_MAX_LENGTH = 200
+export const PASSWORD_MIN_LENGTH = 15
+export const PASSWORD_MAX_LENGTH = 128
