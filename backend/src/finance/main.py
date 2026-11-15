@@ -51,7 +51,6 @@ async def list_accounts(
     rows = await db.scalars(
         select(Account).where(Account.user_id == user.id)
     )
-    rows = await db.scalars(select(Account))
     return [
         {
             "id": a.id,
@@ -75,7 +74,6 @@ async def list_transactions(
     )
 
     rows = await db.scalars(statement)
-    rows = await db.scalars(select(Transaction))
     return [
         {
             "id": t.id,
