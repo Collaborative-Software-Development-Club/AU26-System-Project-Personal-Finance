@@ -23,6 +23,14 @@ async def find_by_email(
     # Returning either our user object or none if nothing was found
     return result.scalar_one_or_none()
 
+"""
+Finds a user by its ID.
+"""
+async def find_by_id(
+    db: AsyncSession,
+    user_id: int,
+) -> User | None:
+    return await db.get(User, user_id)
 
 """
 Creates our user object and places it in our database. Handles 
