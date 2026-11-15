@@ -77,3 +77,27 @@ async def validate_session(
         raise InvalidSessionError()
 
     return session
+
+"""
+Removes the current session from the database and then clears the browser cookie.
+"""
+async def logout(
+    db: AsyncSession,
+    token: str | None,
+) -> None:
+    if not token:
+        return
+
+    token_hash = hash_session_token(token)
+
+    async with db.begin():
+        session = await sessions_repository.find_by_token_hash(
+            db,
+            token_hash,
+        )
+
+        if session is not None:
+            await sessions_repository.delete_session(
+                db,
+                session.id,
+            )

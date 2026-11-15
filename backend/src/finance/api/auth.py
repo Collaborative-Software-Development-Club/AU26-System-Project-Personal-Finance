@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, Cookie
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from finance.core.config import settings
@@ -10,6 +10,7 @@ from finance.schemas.auth import (
     UserResponse,
 )
 from finance.services import auth as auth_service
+from finance.services import sessions as sessions_service
 from finance.api.dependencies import get_current_user
 from finance.models.user import User
 
@@ -84,6 +85,30 @@ async def register(
             status_code=409,
             detail="Email is already registered",
         ) from None
+
+"""
+Routes that handles logouts.
+"""
+@router.post("/logout")
+async def logout(
+    response: Response,
+    token: str | None = Cookie(
+        default=None,
+        alias=SESSION_COOKIE_NAME,
+    ),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    await sessions_service.logout(db, token)
+
+    response.delete_cookie(
+        key=SESSION_COOKIE_NAME,
+        path="/",
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+    )
+
+    return {"message": "Logged out"}
 
 """
 Routes for the current user.
