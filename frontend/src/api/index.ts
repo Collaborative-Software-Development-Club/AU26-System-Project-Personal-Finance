@@ -12,3 +12,15 @@ export const api: FinanceApi = new HttpFinanceApi()
 export { setSimulatedLatency, FAIL_MARKER, UNKNOWN_MARKER, SLOW_MARKER } from './mock/simulation'
 export * from './errors'
 export type * from './types'
+
+export {
+  loginRequest,
+  getCurrentUserRequest,
+  registerRequest,
+  logoutRequest,
+} from './auth'
+
+export type {
+  LoginInput,
+  RegisterInput,
+} from './auth'
