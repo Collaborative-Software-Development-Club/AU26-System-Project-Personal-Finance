@@ -5,6 +5,7 @@ interface CsvRow {
 interface ChunkPayload {
   upload_id: string
   chunk_index: number
+  filename: string
   rows: CsvRow[]
 }
 
@@ -61,6 +62,7 @@ export async function uploadCSV(file: File): Promise<any> {
         const payload: ChunkPayload = {
           upload_id: crypto.randomUUID(),
           chunk_index: 0,
+          filename: file.name,
           rows: parsedRows,
         }
 
