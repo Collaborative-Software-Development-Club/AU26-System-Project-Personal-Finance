@@ -1,6 +1,8 @@
+from datetime import date
+from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, Header
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from finance.api.auth import router as auth_router
 from pydantic import BaseModel
@@ -17,6 +19,25 @@ class ChunkPayload(BaseModel):
     upload_id: str
     chunk_index: int
     rows: list[dict[str, Any]]
+
+
+class NewTransaction(BaseModel):
+    account_id: int
+    amount: Decimal
+    description: str
+    category: str
+    transaction_date: date
+
+
+def txn_to_dict(t: Transaction) -> dict[str, Any]:
+    return {
+        "id": t.id,
+        "account_id": t.account_id,
+        "amount": t.amount,
+        "description": t.description,
+        "category": t.category,
+        "transaction_date": t.transaction_date,
+    }
 
 
 app = FastAPI(title="Personal Finance API")
@@ -56,17 +77,47 @@ async def list_accounts(db: Db) -> list[dict[str, Any]]:
 @app.get("/transactions")
 async def list_transactions(db: Db) -> list[dict[str, Any]]:
     rows = await db.scalars(select(Transaction))
-    return [
-        {
-            "id": t.id,
-            "account_id": t.account_id,
-            "amount": t.amount,
-            "description": t.description,
-            "category": t.category,
-            "transaction_date": t.transaction_date,
-        }
-        for t in rows
-    ]
+    return [txn_to_dict(t) for t in rows]
+
+
+@app.get("/accounts/{account_id}/transactions")
+async def account_transactions(account_id: int, db: Db) -> list[dict[str, Any]]:
+    if await db.get(Account, account_id) is None:
+        raise HTTPException(404, "Account not found")
+    rows = await db.scalars(
+        select(Transaction)
+        .where(Transaction.account_id == account_id)
+        .order_by(Transaction.transaction_date.desc())
+    )
+    return [txn_to_dict(t) for t in rows]
+
+
+@app.post("/transactions", status_code=201)
+async def create_transaction(body: NewTransaction, db: Db) -> dict[str, Any]:
+    account = await db.get(Account, body.account_id)
+    if account is None:
+        raise HTTPException(404, "Account not found")
+
+    txn = Transaction(**body.model_dump())
+    db.add(txn)
+    # keep the stored balance in sync, the frontend reads it straight off the account
+    account.balance += body.amount
+    await db.commit()
+    await db.refresh(txn)
+    return txn_to_dict(txn)
+
+
+@app.delete("/transactions/{txn_id}", status_code=204)
+async def delete_transaction(txn_id: int, db: Db) -> None:
+    txn = await db.get(Transaction, txn_id)
+    if txn is None:
+        raise HTTPException(404, "Transaction not found")
+
+    account = await db.get(Account, txn.account_id)
+    if account is not None:
+        account.balance -= txn.amount
+    await db.delete(txn)
+    await db.commit()
 
 
 @app.post("/upload")
