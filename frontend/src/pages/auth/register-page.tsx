@@ -1,13 +1,14 @@
 ﻿import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Check, Circle, Info, UserPlus } from 'lucide-react'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { AlertCircle, Check, Circle, UserPlus } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { FormField } from '@/components/forms'
 import { toast } from '@/components/feedback'
 import { useDocumentTitle } from '@/hooks'
+import { register } from '@/api/auth'
 import { hasErrors, PASSWORD_RULES, validateRegister, type FieldErrors, type RegisterFormValues } from '@/domain'
 import { cn } from '@/lib/utils'
 import { PasswordInput } from './login-page'
@@ -21,22 +22,31 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState<FieldErrors<keyof RegisterFormValues>>({})
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [registerError, setRegisterError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const set = (field: keyof RegisterFormValues, value: string) => {
     setValues((v) => ({ ...v, [field]: value }))
     if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }))
   }
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     const errs = validateRegister(values)
     setErrors(errs)
     if (hasErrors(errs)) return
-    // UI only: nothing is stored and no account is created.
-    toast.info('Registration is simulated', {
-      description: 'No account was created. You are continuing as the demo user.',
-    })
-    navigate('/dashboard')
+
+    setLoading(true)
+    setRegisterError('')
+    try {
+      await register(values.name, values.email, values.password)
+      toast.success('Account created', { description: 'You can log in now.' })
+      navigate('/login')
+    } catch (err) {
+      setRegisterError(err instanceof Error ? err.message : 'Registration failed')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -46,11 +56,12 @@ export default function RegisterPage() {
         <CardDescription>Set up a workspace to track accounts, budgets and spending.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
-        <Alert className="border-warning/40 bg-warning/5 [&>svg]:text-warning">
-          <Info aria-hidden="true" />
-          <AlertTitle>Demo mode</AlertTitle>
-          <AlertDescription>Registration is simulated: nothing you enter here is stored or sent anywhere.</AlertDescription>
-        </Alert>
+        {registerError && (
+          <Alert variant="destructive">
+            <AlertCircle aria-hidden="true" />
+            <AlertDescription>{registerError}</AlertDescription>
+          </Alert>
+        )}
 
         <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           <FormField label="Name" required error={errors.name}>
@@ -78,9 +89,9 @@ export default function RegisterPage() {
               autoComplete="new-password"
             />
           </FormField>
-          <Button type="submit" className="mt-1 w-full">
+          <Button type="submit" className="mt-1 w-full" disabled={loading}>
             <UserPlus aria-hidden="true" />
-            Create account
+            {loading ? 'Creating account...' : 'Create account'}
           </Button>
         </form>
       </CardContent>
