@@ -289,7 +289,7 @@ export interface RegisterFormValues {
 }
 
 export const PASSWORD_RULES = [
-  { id: 'length', label: 'At least 15 characters', test: (p: string) => p.length >= 15 },
+  { id: 'length', label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
   { id: 'letter', label: 'Contains a letter', test: (p: string) => /[a-zA-Z]/.test(p) },
   { id: 'number', label: 'Contains a number', test: (p: string) => /\d/.test(p) },
 ]

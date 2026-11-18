@@ -1,45 +1,34 @@
 ﻿import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { AlertCircle, Eye, EyeOff, LogIn } from 'lucide-react'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Eye, EyeOff, Info, LogIn } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { FormField } from '@/components/forms'
 import { useDocumentTitle } from '@/hooks'
-import { login } from '@/api/auth'
+import { DEMO_PASSWORD, DEMO_USER } from '@/data/demo-user'
 import { hasErrors, validateLogin, type FieldErrors, type LoginFormValues } from '@/domain'
 
 export default function LoginPage() {
   useDocumentTitle('Log in')
   const navigate = useNavigate()
-  const [values, setValues] = useState<LoginFormValues>({ email: '', password: '' })
+  const [values, setValues] = useState<LoginFormValues>({ email: DEMO_USER.email, password: DEMO_PASSWORD })
   const [errors, setErrors] = useState<FieldErrors<keyof LoginFormValues>>({})
   const [showPassword, setShowPassword] = useState(false)
-  const [loginError, setLoginError] = useState('')
-  const [loading, setLoading] = useState(false)
 
   const set = (field: keyof LoginFormValues, value: string) => {
     setValues((v) => ({ ...v, [field]: value }))
     if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }))
   }
 
-  const onSubmit = async (e: FormEvent) => {
+  const onSubmit = (e: FormEvent) => {
     e.preventDefault()
     const errs = validateLogin(values)
     setErrors(errs)
     if (hasErrors(errs)) return
-
-    setLoading(true)
-    setLoginError('')
-    try {
-      await login(values.email, values.password)
-      navigate('/dashboard')
-    } catch (err) {
-      setLoginError(err instanceof Error ? err.message : 'Login failed')
-    } finally {
-      setLoading(false)
-    }
+    // UI only: there is no authentication. Any valid submission opens the demo workspace.
+    navigate('/dashboard')
   }
 
   return (
@@ -49,12 +38,14 @@ export default function LoginPage() {
         <CardDescription>Welcome back. Enter your details to open your workspace.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
-        {loginError && (
-          <Alert variant="destructive">
-            <AlertCircle aria-hidden="true" />
-            <AlertDescription>{loginError}</AlertDescription>
-          </Alert>
-        )}
+        <Alert className="border-warning/40 bg-warning/5 [&>svg]:text-warning">
+          <Info aria-hidden="true" />
+          <AlertTitle>Demo mode — no real authentication</AlertTitle>
+          <AlertDescription>
+            Credentials are pre-filled and are not checked. Any submission opens the demo workspace. Real sign-in, sessions and authorization are
+            provided by the backend when it exists.
+          </AlertDescription>
+        </Alert>
 
         <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           <FormField label="Email" required error={errors.email}>
@@ -69,9 +60,9 @@ export default function LoginPage() {
               autoComplete="current-password"
             />
           </FormField>
-          <Button type="submit" className="mt-1 w-full" disabled={loading}>
+          <Button type="submit" className="mt-1 w-full">
             <LogIn aria-hidden="true" />
-            {loading ? 'Logging in...' : 'Log in'}
+            Log in
           </Button>
         </form>
       </CardContent>
