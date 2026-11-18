@@ -8,9 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from finance.db.session import get_db
-from finance.models import Account, Transaction, ImportJob, ImportedRow
+from finance.models import Account, Transaction, ImportJob, ImportedRow, TransactionInput
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -112,6 +112,28 @@ async def upload_file(
 
             status = "raw"
             error_message = None
+
+            # Add transaction row to database if all fields are valid
+            transaction_key = f"{idempotency_key}:{row_index}"
+
+            # Create transaction input object
+            TransactionInput = Transaction(
+                id=1, # TODO: replace with actual user ID
+                account_id=row_data.get("account_id"),
+                amount=parsed_amount,
+                description=raw_description,
+                category=raw_category,
+                transaction_date=parsed_date,
+                created_at=datetime.now()
+            )
+
+            existing_transaction = await db.scalar(select(Transaction).where(Transaction.idempotency_key == transaction_key))
+            if existing_transaction:
+                return {"error": "pending", "message": "Duplicate upload detected"}
+
+            db.add(TransactionInput)
+            await db.flush()
+
         except (ValueError, InvalidOperation) as exc:
             parsed_date = None
             parsed_amount = None
