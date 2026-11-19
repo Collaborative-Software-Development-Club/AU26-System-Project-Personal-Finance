@@ -12,6 +12,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    idempotency_key: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"))
     amount: Mapped[Decimal] = mapped_column(Numeric(20, 2))
     description: Mapped[str] = mapped_column(String(DESCRIPTION_MAX_LENGTH))
