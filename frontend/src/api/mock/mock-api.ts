@@ -43,7 +43,7 @@ import type {
   TransferResult,
 } from '../types'
 import { failIfRequested, loseResponseIfRequested, simulateLatency } from './simulation'
-import { readSnapshot, writeSnapshot } from './storage'
+import { MOCK_DB_STORAGE_KEY, readSnapshot, writeSnapshot } from './storage'
 
 interface IdempotencyRecord {
   kind: 'transaction' | 'transfer' | 'import'
@@ -52,18 +52,18 @@ interface IdempotencyRecord {
 
 const IDEMPOTENCY_STORAGE_KEY = 'pf.mock-idempotency'
 
-function readIdempotency(): Record<string, IdempotencyRecord> {
+function readIdempotency(storageKey = IDEMPOTENCY_STORAGE_KEY): Record<string, IdempotencyRecord> {
   try {
-    const raw = window.localStorage.getItem(IDEMPOTENCY_STORAGE_KEY)
+    const raw = window.localStorage.getItem(storageKey)
     return raw ? (JSON.parse(raw) as Record<string, IdempotencyRecord>) : {}
   } catch {
     return {}
   }
 }
 
-function writeIdempotency(records: Record<string, IdempotencyRecord>) {
+function writeIdempotency(records: Record<string, IdempotencyRecord>, storageKey = IDEMPOTENCY_STORAGE_KEY) {
   try {
-    window.localStorage.setItem(IDEMPOTENCY_STORAGE_KEY, JSON.stringify(records))
+    window.localStorage.setItem(storageKey, JSON.stringify(records))
   } catch {
     /* ignore */
   }
@@ -76,6 +76,9 @@ function clone<T>(value: T): T {
 export class MockFinanceApi implements FinanceApi {
   private db: FinanceSnapshot
   private idempotency: Record<string, IdempotencyRecord>
+  private scopeRevision = 0
+  private snapshotStorageKey = MOCK_DB_STORAGE_KEY
+  private idempotencyStorageKey = IDEMPOTENCY_STORAGE_KEY
 
   constructor() {
     this.db = readSnapshot() ?? createSeedSnapshot()
@@ -87,9 +90,26 @@ export class MockFinanceApi implements FinanceApi {
   // Internal helpers
   // -------------------------------------------------------------------------
 
+  setUserScope(userId: string | null): void {
+    ++this.scopeRevision
+    const scope = userId ?? 'anonymous'
+    this.snapshotStorageKey = MOCK_DB_STORAGE_KEY + ':' + scope
+    this.idempotencyStorageKey = IDEMPOTENCY_STORAGE_KEY + ':' + scope
+    this.db = readSnapshot(this.snapshotStorageKey) ?? createEmptySnapshot()
+    this.idempotency = readIdempotency(this.idempotencyStorageKey)
+  }
+
+  private async wait(text?: string | null): Promise<void> {
+    const current = this.scopeRevision
+    await simulateLatency(text)
+    if (current !== this.scopeRevision) {
+      throw new ApiError('unauthenticated', 'Your session changed. Please try again.')
+    }
+  }
+
   private persist() {
-    writeSnapshot(this.db)
-    writeIdempotency(this.idempotency)
+    writeSnapshot(this.db, this.snapshotStorageKey)
+    writeIdempotency(this.idempotency, this.idempotencyStorageKey)
   }
 
   private account(id: Id): Account {
@@ -145,12 +165,12 @@ export class MockFinanceApi implements FinanceApi {
   // -------------------------------------------------------------------------
 
   async loadSnapshot(): Promise<FinanceSnapshot> {
-    await simulateLatency()
+    await this.wait()
     return clone(this.db)
   }
 
   async resetToSample(): Promise<FinanceSnapshot> {
-    await simulateLatency()
+    await this.wait()
     this.db = createSeedSnapshot()
     this.idempotency = {}
     this.persist()
@@ -158,7 +178,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async resetToEmpty(): Promise<FinanceSnapshot> {
-    await simulateLatency()
+    await this.wait()
     this.db = createEmptySnapshot()
     this.idempotency = {}
     this.persist()
@@ -170,7 +190,7 @@ export class MockFinanceApi implements FinanceApi {
   // -------------------------------------------------------------------------
 
   async createAccount(input: AccountInput): Promise<Account> {
-    await simulateLatency(input.name)
+    await this.wait(input.name)
     failIfRequested(input.name)
     if (input.openingBalance < 0 && !isLiabilityAccountType(input.type)) {
       throw new ApiError('validation', 'Only credit accounts may start with a negative balance.', { openingBalance: 'Invalid' })
@@ -192,7 +212,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async updateAccount(id: Id, input: AccountInput): Promise<Account> {
-    await simulateLatency(input.name)
+    await this.wait(input.name)
     failIfRequested(input.name)
     const existing = this.account(id)
     const hasTx = this.db.transactions.some((t) => t.accountId === id)
@@ -214,7 +234,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async setAccountStatus(id: Id, status: Account['status']): Promise<Account> {
-    await simulateLatency()
+    await this.wait()
     const updated = { ...this.account(id), status }
     this.db.accounts = this.replace(this.db.accounts, updated)
     this.persist()
@@ -222,7 +242,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async deleteAccount(id: Id): Promise<void> {
-    await simulateLatency()
+    await this.wait()
     const account = this.account(id)
     const count = this.db.transactions.filter((t) => t.accountId === id).length
     if (count > 0) {
@@ -241,7 +261,7 @@ export class MockFinanceApi implements FinanceApi {
   // -------------------------------------------------------------------------
 
   async createTransaction(input: TransactionInput, idempotencyKey: string): Promise<Transaction> {
-    await simulateLatency(input.description)
+    await this.wait(input.description)
     const existing = this.idempotency[idempotencyKey]
     if (existing?.kind === 'transaction') {
       // Same key → same result. This is what makes retries safe.
@@ -277,7 +297,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async lookupTransaction(idempotencyKey: string): Promise<Transaction | null> {
-    await simulateLatency()
+    await this.wait()
     const record = this.idempotency[idempotencyKey]
     if (!record || record.kind !== 'transaction') return null
     const tx = this.db.transactions.find((t) => t.id === record.entityId)
@@ -285,7 +305,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async updateTransaction(id: Id, input: TransactionInput): Promise<Transaction> {
-    await simulateLatency(input.description)
+    await this.wait(input.description)
     failIfRequested(input.description)
     const existing = this.transaction(id)
     if (existing.type === 'transfer') {
@@ -311,7 +331,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async deleteTransaction(id: Id): Promise<void> {
-    await simulateLatency()
+    await this.wait()
     const tx = this.transaction(id)
     if (tx.type === 'transfer') {
       throw new ApiError('conflict', 'This transaction is one leg of a transfer. Delete the transfer instead so both accounts stay consistent.')
@@ -325,7 +345,7 @@ export class MockFinanceApi implements FinanceApi {
   // -------------------------------------------------------------------------
 
   async createTransfer(input: TransferInput, idempotencyKey: string): Promise<TransferResult> {
-    await simulateLatency(input.description)
+    await this.wait(input.description)
     const existing = this.idempotency[idempotencyKey]
     if (existing?.kind === 'transfer') {
       const lookup = await this.lookupTransferSync(idempotencyKey)
@@ -416,12 +436,12 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async lookupTransfer(idempotencyKey: string): Promise<TransferLookup> {
-    await simulateLatency()
+    await this.wait()
     return this.lookupTransferSync(idempotencyKey)
   }
 
   async deleteTransfer(id: Id): Promise<void> {
-    await simulateLatency()
+    await this.wait()
     if (!this.db.transfers.some((t) => t.id === id)) throw new ApiError('not_found', 'Transfer not found.')
     this.db.transfers = this.db.transfers.filter((t) => t.id !== id)
     this.db.transactions = this.db.transactions.filter((t) => t.transferId !== id)
@@ -440,7 +460,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async createCategory(input: CategoryInput): Promise<Category> {
-    await simulateLatency(input.name)
+    await this.wait(input.name)
     failIfRequested(input.name)
     this.assertUniqueCategoryName(input.name, null)
     const category: Category = {
@@ -457,7 +477,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async updateCategory(id: Id, input: CategoryInput): Promise<Category> {
-    await simulateLatency(input.name)
+    await this.wait(input.name)
     failIfRequested(input.name)
     const existing = this.category(id)
     this.assertUniqueCategoryName(input.name, id)
@@ -468,7 +488,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async setCategoryStatus(id: Id, status: Category['status']): Promise<Category> {
-    await simulateLatency()
+    await this.wait()
     const updated = { ...this.category(id), status }
     this.db.categories = this.replace(this.db.categories, updated)
     this.persist()
@@ -476,7 +496,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async deleteCategory(id: Id, reassignToCategoryId: Id | null): Promise<DeleteCategoryResult> {
-    await simulateLatency()
+    await this.wait()
     const category = this.category(id)
     const affected = this.db.transactions.filter((t) => t.categoryId === id)
     const rules = this.db.recurringRules.filter((r) => r.categoryId === id)
@@ -518,7 +538,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async createBudget(input: BudgetInput): Promise<Budget> {
-    await simulateLatency(input.name)
+    await this.wait(input.name)
     failIfRequested(input.name)
     const category = this.category(input.categoryId)
     if (category.type === 'income') throw new ApiError('validation', 'Budgets track expense categories only.', { categoryId: 'Invalid' })
@@ -542,7 +562,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async updateBudget(id: Id, input: BudgetInput): Promise<Budget> {
-    await simulateLatency(input.name)
+    await this.wait(input.name)
     failIfRequested(input.name)
     const existing = this.budget(id)
     const category = this.category(input.categoryId)
@@ -565,7 +585,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async deleteBudget(id: Id): Promise<void> {
-    await simulateLatency()
+    await this.wait()
     this.budget(id)
     this.db.budgets = this.db.budgets.filter((b) => b.id !== id)
     this.persist()
@@ -606,7 +626,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async createRecurringRule(input: RecurringRuleInput): Promise<RecurringRule> {
-    await simulateLatency(input.description)
+    await this.wait(input.description)
     failIfRequested(input.description)
     const rule = this.buildRule({}, input)
     this.db.recurringRules = [...this.db.recurringRules, rule]
@@ -615,7 +635,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async updateRecurringRule(id: Id, input: RecurringRuleInput): Promise<RecurringRule> {
-    await simulateLatency(input.description)
+    await this.wait(input.description)
     failIfRequested(input.description)
     const existing = this.rule(id)
     const rule = this.buildRule(existing, input)
@@ -625,7 +645,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async setRecurringRuleStatus(id: Id, status: 'active' | 'paused' | 'cancelled'): Promise<RecurringRule> {
-    await simulateLatency()
+    await this.wait()
     const existing = this.rule(id)
     if (existing.status === 'cancelled') throw new ApiError('conflict', 'A cancelled rule cannot be changed.')
     let updated: RecurringRule
@@ -641,7 +661,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async deleteRecurringRule(id: Id): Promise<void> {
-    await simulateLatency()
+    await this.wait()
     this.rule(id)
     this.db.recurringRules = this.db.recurringRules.filter((r) => r.id !== id)
     // Historical transactions keep their recurringRuleId for traceability.
@@ -653,7 +673,7 @@ export class MockFinanceApi implements FinanceApi {
   // -------------------------------------------------------------------------
 
   async runImport(input: ImportInput, idempotencyKey: string): Promise<ImportResult> {
-    await simulateLatency(input.fileName)
+    await this.wait(input.fileName)
     const existing = this.idempotency[idempotencyKey]
     if (existing?.kind === 'import') {
       const job = this.db.importJobs.find((j) => j.id === existing.entityId)
@@ -714,7 +734,7 @@ export class MockFinanceApi implements FinanceApi {
   }
 
   async lookupImport(idempotencyKey: string): Promise<ImportResult | null> {
-    await simulateLatency()
+    await this.wait()
     const record = this.idempotency[idempotencyKey]
     if (!record || record.kind !== 'import') return null
     const job = this.db.importJobs.find((j) => j.id === record.entityId)

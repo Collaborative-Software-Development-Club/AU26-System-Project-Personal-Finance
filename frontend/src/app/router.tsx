@@ -22,6 +22,7 @@ import { AppLayout } from '@/components/layout/app-layout'
 import { AuthLayout } from '@/components/layout/auth-layout'
 import { LoadingSkeleton } from '@/components/feedback/loading-skeleton'
 import { RouteErrorPage } from '@/pages/errors/route-error-page'
+import { GuestOnly, RequireAuth } from './auth-guard'
 
 function page(loader: () => Promise<{ default: ComponentType }>) {
   const Component = lazy(loader)
@@ -40,7 +41,7 @@ function page(loader: () => Promise<{ default: ComponentType }>) {
 
 export const router = createBrowserRouter([
   {
-    element: <AppLayout />,
+    element: <RequireAuth><AppLayout /></RequireAuth>,
     errorElement: <RouteErrorPage />,
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
@@ -81,7 +82,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    element: <AuthLayout />,
+    element: <GuestOnly><AuthLayout /></GuestOnly>,
     errorElement: <RouteErrorPage />,
     children: [
       { path: 'login', element: page(() => import('@/pages/auth/login-page')) },

@@ -54,8 +54,8 @@ export function useAsyncAction<Args extends unknown[], R>(
       setState({ status: 'success', isPending: false, error: null, fieldErrors: {}, idempotencyKey: null })
       return result
     } catch (e) {
-      if (isOutcomeUnknown(e)) {
-        setState({ status: 'unknown', isPending: false, error: e.message, fieldErrors: {}, idempotencyKey: e.idempotencyKey })
+      if (isOutcomeUnknown(e) || (isApiError(e) && e.code === 'unknown_outcome')) {
+        setState({ status: 'unknown', isPending: false, error: e.message, fieldErrors: {}, idempotencyKey: isOutcomeUnknown(e) ? e.idempotencyKey : null })
       } else {
         setState({
           status: 'error',
