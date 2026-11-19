@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
@@ -5,6 +7,8 @@ from finance.models.user import User
 from finance.core.security import hash_password, verify_password
 from finance.repositories import users as users_repository
 from finance.services import sessions as sessions_service
+
+logger = logging.getLogger(__name__)
 
 
 """
@@ -54,6 +58,8 @@ async def login(
 
         # Raising an error if either our user or our password doesn't match
         if user is None or not password_matches:
+            logger.info("login failed")
+            logger.debug("login failed email=%s", email)
             raise InvalidCredentialsError()
 
         # If we have a matching user and password, create their login session
@@ -62,6 +68,11 @@ async def login(
             user.id,
         )
 
+    logger.info(
+        "login succeeded user_id=%s session_id=%s",
+        created_session.user_id,
+        created_session.session_id,
+    )
     # Return the session token and expiration after the transaction commits
     return created_session
 
@@ -91,7 +102,11 @@ async def register(
 
         # If the email is already registered in our db, then we raise an error
         if user is None:
+            logger.info("registration rejected duplicate email")
+            logger.debug("registration rejected email=%s", email)
             raise EmailAlreadyRegisteredError()
 
+    logger.info("user registered user_id=%s", user.id)
+    logger.debug("user registered email=%s user_id=%s", email, user.id)
     # Finally we return our user object
     return user

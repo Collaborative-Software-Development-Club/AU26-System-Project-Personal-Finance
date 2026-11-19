@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import Cookie, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +10,8 @@ from finance.models.user import User
 from finance.repositories import users as users_repository
 from finance.services import sessions as sessions_service
 
+logger = logging.getLogger(__name__)
+
 
 async def get_current_session(
     token: str | None = Cookie(
@@ -17,6 +21,7 @@ async def get_current_session(
     db: AsyncSession = Depends(get_db),
 ) -> UserSession:
     if token is None:
+        logger.debug("request unauthenticated reason=missing_cookie")
         raise HTTPException(
             status_code=401,
             detail="Not authenticated",
@@ -40,6 +45,10 @@ async def get_current_user(
     )
 
     if user is None:
+        logger.debug(
+            "request unauthenticated session_id=%s reason=missing_user",
+            session.id,
+        )
         raise HTTPException(
             status_code=401,
             detail="Not authenticated",
