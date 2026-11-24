@@ -5,7 +5,14 @@
  * Validators are pure and shared between the create and edit forms so rules
  * never drift.
  */
-import { isLiabilityAccountType, NAME_MAX_LENGTH, DESCRIPTION_MAX_LENGTH } from './constants'
+import {
+  isLiabilityAccountType,
+  NAME_MAX_LENGTH,
+  DESCRIPTION_MAX_LENGTH,
+  EMAIL_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+} from './constants'
 import { compareMonthKeys, isValidISODate, isValidMonthKey } from './dates'
 import { findBudgetConflict } from './budgets'
 import { isCurrencyCode, parseMoney } from './money'
@@ -263,7 +270,6 @@ export function validateCategory(
 }
 
 // ---------------------------------------------------------------------------
-// Auth (UI only — see demo-user.ts)
 // ---------------------------------------------------------------------------
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -276,8 +282,10 @@ export interface LoginFormValues {
 export function validateLogin(values: LoginFormValues): FieldErrors<keyof LoginFormValues> {
   const errors: FieldErrors<keyof LoginFormValues> = {}
   if (!values.email.trim()) errors.email = 'Email is required.'
+  else if (values.email.trim().length > EMAIL_MAX_LENGTH) errors.email = 'Email is too long.'
   else if (!EMAIL_RE.test(values.email.trim())) errors.email = 'Enter a valid email address.'
   if (!values.password) errors.password = 'Password is required.'
+  else if (Array.from(values.password).length > PASSWORD_MAX_LENGTH) errors.password = 'Password is too long.'
   return errors
 }
 
@@ -289,15 +297,16 @@ export interface RegisterFormValues {
 }
 
 export const PASSWORD_RULES = [
-  { id: 'length', label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
-  { id: 'letter', label: 'Contains a letter', test: (p: string) => /[a-zA-Z]/.test(p) },
-  { id: 'number', label: 'Contains a number', test: (p: string) => /\d/.test(p) },
+  { id: 'minimum-length', label: 'At least ' + PASSWORD_MIN_LENGTH + ' characters', test: (p: string) => Array.from(p).length >= PASSWORD_MIN_LENGTH },
+  { id: 'maximum-length', label: PASSWORD_MAX_LENGTH + ' characters or fewer', test: (p: string) => Array.from(p).length <= PASSWORD_MAX_LENGTH },
 ]
 
 export function validateRegister(values: RegisterFormValues): FieldErrors<keyof RegisterFormValues> {
   const errors: FieldErrors<keyof RegisterFormValues> = {}
   if (!values.name.trim()) errors.name = 'Name is required.'
+  else if (values.name.length > NAME_MAX_LENGTH) errors.name = 'Name is too long.'
   if (!values.email.trim()) errors.email = 'Email is required.'
+  else if (values.email.trim().length > EMAIL_MAX_LENGTH) errors.email = 'Email is too long.'
   else if (!EMAIL_RE.test(values.email.trim())) errors.email = 'Enter a valid email address.'
   if (!values.password) errors.password = 'Password is required.'
   else if (!PASSWORD_RULES.every((r) => r.test(values.password))) errors.password = 'Password does not meet the requirements.'

@@ -4,6 +4,7 @@ export type ApiErrorCode =
   | 'not_found'
   | 'unavailable'
   | 'unknown_outcome'
+  | 'unauthenticated'
 
 export class ApiError extends Error {
   readonly code: ApiErrorCode

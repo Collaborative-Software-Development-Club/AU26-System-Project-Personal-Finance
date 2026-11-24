@@ -10,8 +10,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { DEMO_USER } from '@/data/demo-user'
-import { useSettingsStore } from '@/store/settings-store'
+import { FormErrorMessage, OutcomeUnknownNotice, toast } from '@/components/feedback'
+import { useAsyncAction } from '@/hooks'
+import { useAuthStore } from '@/store/auth-store'
 import { cn } from '@/lib/utils'
 
 function initials(name: string) {
@@ -23,14 +24,24 @@ function initials(name: string) {
     .join('')
 }
 
-/**
- * Profile menu. "Log out" only navigates to the login screen — there is no
- * session to end. See data/demo-user.ts.
- */
 export function UserMenu({ compact = false }: { compact?: boolean }) {
-  const displayName = useSettingsStore((s) => s.displayName)
+  const user = useAuthStore((s) => s.user)
+  const logout = useAuthStore((s) => s.logout)
+  const restoreSession = useAuthStore((s) => s.restoreSession)
+  const authBusy = useAuthStore((s) => s.pending !== null || s.status === 'loading')
   const navigate = useNavigate()
-  const name = displayName || DEMO_USER.name
+  const signOut = useAsyncAction(async () => {
+    await logout()
+    return true
+  })
+  const checkSession = useAsyncAction(restoreSession)
+  const handleLogout = async () => {
+    const succeeded = await signOut.run()
+    if (!succeeded) return
+    toast.success('Signed out')
+    navigate('/login', { replace: true })
+  }
+  const name = user?.name ?? 'Account'
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -53,7 +64,7 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="font-normal">
           <div className="truncate text-sm font-medium">{name}</div>
-          <div className="truncate text-xs text-muted-foreground">{DEMO_USER.email}</div>
+          <div className="truncate text-xs text-muted-foreground">{user?.email}</div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
@@ -63,10 +74,29 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => navigate('/login')}>
+        <DropdownMenuItem
+          disabled={signOut.isPending || authBusy}
+          onSelect={(event) => {
+            event.preventDefault()
+            void handleLogout()
+          }}
+        >
           <LogOut aria-hidden="true" />
-          Log out
+          {signOut.isPending ? 'Signing out...' : 'Log out'}
         </DropdownMenuItem>
+        {signOut.status === 'unknown' ? (
+          <div className="p-2">
+            <OutcomeUnknownNotice
+              title="Logout could not be confirmed"
+              description={signOut.error ?? 'Check your session before trying again.'}
+              onCheckStatus={() => void checkSession.run()}
+              checking={checkSession.isPending}
+            />
+          </div>
+        ) : (
+          <FormErrorMessage message={signOut.error} className="m-2" />
+        )}
+        <FormErrorMessage message={checkSession.error} className="m-2" />
       </DropdownMenuContent>
     </DropdownMenu>
   )

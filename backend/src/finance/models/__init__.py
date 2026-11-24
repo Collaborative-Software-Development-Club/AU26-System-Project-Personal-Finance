@@ -3,6 +3,7 @@ from finance.models.budget import Budget
 from finance.models.recurring_transaction import RecurringTransaction
 from finance.models.transaction import Transaction
 from finance.models.user import User
+from finance.models.session import UserSession
 from finance.models.uploadedFiles import ImportJob
 from finance.models.uploadedRows import ImportedRow
 
@@ -12,6 +13,7 @@ __all__ = [
     "RecurringTransaction",
     "Transaction",
     "User",
+    "UserSession",
     "ImportJob",
-    "ImportedRow"
+    "ImportedRow",
 ]
