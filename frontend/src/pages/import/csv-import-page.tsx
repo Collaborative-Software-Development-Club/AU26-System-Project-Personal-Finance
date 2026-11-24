@@ -34,9 +34,6 @@ import {
   type ValidationResult,
 } from './csv-import-logic'
 
-// Temporary API upload file spot
-import { uploadCSV } from '@/api/upload-file'
-
 type Step = 1 | 2 | 3 | 4 | 5 | 6
 
 const STEPS: { id: Step; label: string }[] = [
@@ -70,7 +67,7 @@ export default function CsvImportPage() {
 
   usePageHeader({
     title: 'Import Transactions',
-    description: 'Upload a CSV statement, map its columns and review the rows before importing them (simulated, stored in this browser).',
+    description: 'Upload a CSV statement, map its columns and review the rows before they are saved.',
     actions: (
       <Button asChild variant="outline">
         <Link to="/import/history">
@@ -98,15 +95,6 @@ export default function CsvImportPage() {
   // Handlers ----------------------------------------------------------------
   const onFileSelected = async (picked: File) => {
     const problem = validateCsvFile(picked)
-
-    // Temp call to the API to upload it to the backend
-    try {
-      const uploadResponse = await uploadCSV(picked)
-      console.log('Uploaded filename:', uploadResponse.filename)
-      console.log(' Uploaded content type:', uploadResponse.content_type)
-    } catch (error) {
-      console.error('Error uploading file:', error)
-    }
 
     setFile(picked)
     setParsed(null)
@@ -216,7 +204,7 @@ export default function CsvImportPage() {
       <Stepper current={step} />
 
       {step === 1 && (
-        <PageSection title="1. Upload a CSV file" description="Your file never leaves the browser; rows are parsed locally.">
+        <PageSection title="1. Upload a CSV file" description="Rows are parsed locally. Nothing is saved until you review and confirm.">
           <div className="flex flex-col gap-6">
             <CsvDropzone file={file} onFileSelected={(f) => void onFileSelected(f)} onRemove={onRemoveFile} error={fileError} parsing={parsing} />
             <FormField
@@ -226,14 +214,6 @@ export default function CsvImportPage() {
             >
               <AccountSelector value={defaultAccountId} onChange={setDefaultAccountId} placeholder="Select account" />
             </FormField>
-            <Alert>
-              <Info aria-hidden="true" />
-              <AlertTitle>Testing failure handling</AlertTitle>
-              <AlertDescription>
-                The simulated server reacts to markers in the <strong>file name</strong>: <code>[FAIL]</code> rejects the import with nothing saved,{' '}
-                <code>[UNKNOWN]</code> saves it but loses the confirmation (outcome unknown), <code>[SLOW]</code> adds ~3 seconds of latency.
-              </AlertDescription>
-            </Alert>
           </div>
         </PageSection>
       )}
@@ -254,7 +234,7 @@ export default function CsvImportPage() {
                 </AlertDescription>
               </Alert>
             )}
-            <CsvPreviewTable headers={parsed.headers} rows={parsed.rows} totalRows={parsed.rows.length} />
+            <CsvPreviewTable headers={parsed.headers} rows={parsed.rows} totalRows={parsed.rows.length} accounts={activeAccounts} />
           </div>
         </PageSection>
       )}
@@ -280,7 +260,7 @@ export default function CsvImportPage() {
       )}
 
       {step === 5 && plan && validation && parsed && (
-        <PageSection title="5. Review" description="This is what will be sent to the (simulated) server.">
+        <PageSection title="5. Review" description="This is what will be sent to the server.">
           <ReviewPanel plan={plan} validation={validation} fileName={parsed.fileName} defaultAccountId={defaultAccountId} accounts={accounts} />
         </PageSection>
       )}

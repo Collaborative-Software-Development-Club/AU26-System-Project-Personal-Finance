@@ -94,7 +94,7 @@ export function ColumnMapper({ headers, sampleRow, config, onChange, errors, def
           </>
         )}
         {fieldSelect('category', { description: 'Matched to your categories by name (case-insensitive). Unmatched names are left uncategorised.' })}
-        {fieldSelect('account', { description: 'Matched to your accounts by name. Rows without a match use the default account.' })}
+        {fieldSelect('account', { description: 'Matched to your accounts by id. Names are shown in preview only. Rows without a match use the default account.' })}
         {fieldSelect('notes')}
       </FormGrid>
 

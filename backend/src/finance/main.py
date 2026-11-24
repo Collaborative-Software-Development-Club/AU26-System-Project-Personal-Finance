@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
-from datetime import date
-from decimal import Decimal
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
 import secrets
 from typing import Annotated, Any
 
@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from finance.core.logging import setup_logging
 from finance.db.session import get_db
-from finance.models import Account, Transaction, ImportJob, ImportedRow, TransactionInput
+from finance.models import Account, Transaction, ImportJob, ImportedRow
 
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
@@ -32,12 +32,27 @@ class ChunkPayload(BaseModel):
     rows: list[dict[str, Any]]
 
 
+class NewAccount(BaseModel):
+    name: str
+    account_type: str
+    balance: Decimal = Decimal("0")
+
+
 class NewTransaction(BaseModel):
     account_id: int
     amount: Decimal
     description: str
     category: str
     transaction_date: date
+
+
+def account_to_dict(a: Account) -> dict[str, Any]:
+    return {
+        "id": a.id,
+        "name": a.name,
+        "account_type": a.account_type,
+        "balance": a.balance,
+    }
 
 
 def txn_to_dict(t: Transaction) -> dict[str, Any]:
@@ -96,15 +111,42 @@ async def list_accounts(
     rows = await db.scalars(
         select(Account).where(Account.user_id == user.id)
     )
-    return [
-        {
-            "id": a.id,
-            "name": a.name,
-            "account_type": a.account_type,
-            "balance": a.balance,
-        }
-        for a in rows
-    ]
+    # returns everything account row: id, name, account_type, balance
+    return [account_to_dict(a) for a in rows]
+
+
+@app.post("/accounts", status_code=201)
+async def create_account(
+    body: NewAccount,
+    db: Db,
+    user: CurrentUser,
+) -> dict[str, Any]:
+    account = Account(
+        **body.model_dump(),
+        user_id=user.id,
+    )
+    db.add(account)
+    await db.commit()
+    await db.refresh(account)
+    return account_to_dict(account)
+
+
+@app.delete("/accounts/{account_id}", status_code=204)
+async def delete_account(
+    account_id: int,
+    db: Db,
+    user: CurrentUser,
+) -> None:
+    account = await get_owned_account(db, user, account_id)
+
+    has_transactions = await db.scalar(
+        select(Transaction.id).where(Transaction.account_id == account.id).limit(1)
+    )
+    if has_transactions is not None:
+        raise HTTPException(409, "Account has transactions")
+
+    await db.delete(account)
+    await db.commit()
 
 
 @app.get("/transactions")
@@ -182,16 +224,23 @@ async def upload_file(
     db: Db,
     user: CurrentUser,
     idempotency_key: str = Header(...),
-) -> dict[str, str]:
-    _ = db, user, idempotency_key
-    # TODO: check idempotency_key against DB to prevent duplicate uploads
+) -> dict[str, Any]:
     existing = await db.scalar(select(ImportJob).where(ImportJob.idempotency_key == idempotency_key))
     if existing:
-        return {"error": "pending", "message": "Duplicate upload detected"}
-    
-    # TODO: persist payload.rows via ImportJob/ImportedRow models
+        return {
+            "id": existing.id,
+            "status": existing.status,
+            "message": "This import was already saved.",
+            "filename": existing.filename,
+            "total_rows": existing.total_rows,
+            "imported_rows": existing.imported_rows,
+            "failed_rows": existing.failed_rows,
+            "duplicate_rows": existing.duplicate_rows,
+            "errors": [],
+        }
+
     job = ImportJob(
-        user_id=1,  # TODO: replace with actual user ID from auth
+        user_id=user.id,
         idempotency_key=idempotency_key,
         filename=f"{payload.filename}",
         total_rows=len(payload.rows),
@@ -199,6 +248,9 @@ async def upload_file(
     )
 
     db.add(job)
+    await db.flush()
+
+    row_errors: list[dict[str, Any]] = []
 
     #Process each row
     for row_index, row_data in enumerate(payload.rows, start=1):
@@ -222,7 +274,7 @@ async def upload_file(
 
             # Create transaction input object
             TransactionInput = Transaction(
-                id=1, # TODO: replace with actual user ID
+                idempotency_key=transaction_key,
                 account_id=row_data.get("account_id"),
                 amount=parsed_amount,
                 description=raw_description,
@@ -233,10 +285,11 @@ async def upload_file(
 
             existing_transaction = await db.scalar(select(Transaction).where(Transaction.idempotency_key == transaction_key))
             if existing_transaction:
-                return {"error": "pending", "message": "Duplicate upload detected"}
-
-            db.add(TransactionInput)
-            await db.flush()
+                job.duplicate_rows += 1
+                status = "duplicate"
+            else:
+                db.add(TransactionInput)
+                await db.flush()
 
         except (ValueError, InvalidOperation) as exc:
             parsed_date = None
@@ -244,6 +297,7 @@ async def upload_file(
             status = "failed"
             job.failed_rows += 1
             error_message = str(exc)
+            row_errors.append({"row": row_index, "field": None, "message": str(exc)})
 
         imported_row = ImportedRow(
             job=job,
@@ -263,8 +317,25 @@ async def upload_file(
         db.add(imported_row)
 
     job.status = "completed" if job.failed_rows == 0 else "partial"
-    job.imported_rows = job.total_rows - job.failed_rows
+    job.imported_rows = job.total_rows - job.failed_rows - job.duplicate_rows
+    job_id = job.id
+    filename = job.filename
+    total_rows = job.total_rows
+    imported_rows = job.imported_rows
+    failed_rows = job.failed_rows
+    duplicate_rows = job.duplicate_rows
+    status = job.status
 
     await db.commit()
 
-    return {"status": "success", "message": f"Chunk {payload.chunk_index} saved"}
+    return {
+        "id": job_id,
+        "status": status,
+        "message": f"Imported {imported_rows} of {total_rows} rows",
+        "filename": filename,
+        "total_rows": total_rows,
+        "imported_rows": imported_rows,
+        "failed_rows": failed_rows,
+        "duplicate_rows": duplicate_rows,
+        "errors": row_errors,
+    }
