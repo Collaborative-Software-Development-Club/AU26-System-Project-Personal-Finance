@@ -8,12 +8,28 @@ API (today it uses an in-browser mock; swap `MockFinanceApi` for HTTP when
 these routes are ready).
 
 ## Setup
-Environments:
-Copy setup backend/.env using backend/.env.example.
-**See Migration Setup Below**
 
-Running API:
-uv run uvicorn finance.main:app --reload
+1. Copy `backend/.env.example` to `backend/.env` and adjust values if needed.
+2. Start PostgreSQL (from the repo root):
+
+   ```bash
+   docker compose up -d
+   ```
+
+If changes to schema are made, see 'Migrations and Database Changes'
+3. Apply migrations (from `backend/`):
+
+   ```bash
+   uv run alembic upgrade head
+   ```
+
+4. Run the API (from `backend/`):
+
+   ```bash
+   uv run uvicorn finance.main:app --reload
+   ```
+
+Optional: `uv run alembic current` prints the applied revision (Postgres must be running).
 
 ## Tech Stack
 
@@ -72,18 +88,17 @@ SQLAlchemy → asyncpg
 PostgreSQL
 ```
 
-## Migration and Database Setup
+## Migrations and Database Changes
 
-Running Docker (from repo root):
-docker compose up -d
+Schema changes live under `alembic/versions/`. After you change models in
+`src/finance/models/`:
 
-Database migrations (from `backend/`):
-uv run alembic upgrade head -m "message"
-
-Create a new migration after changing models in `src/finance/models/`:
+```bash
 uv run alembic revision --autogenerate -m "describe change"
-Check alembic/versions/ was updated correctly
-uv run alembic upgrade head
+```
 
-Running API:
-uv run uvicorn finance.main:app --reload
+Review the new file under `alembic/versions/`, then apply it:
+
+```bash
+uv run alembic upgrade head
+```

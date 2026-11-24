@@ -167,7 +167,7 @@ const HEADER_SYNONYMS: Record<ImportField, string[]> = {
   credit: ['credit', 'deposit', 'deposits', 'money in', 'paid in', 'inflow', 'credit amount'],
   type: ['type', 'transaction type', 'direction', 'kind', 'dr/cr', 'cr/dr'],
   category: ['category', 'categories', 'tag'],
-  account: ['account', 'account name', 'source account'],
+  account: ['account id', 'account_id', 'accountid', 'account', 'account name', 'source account'],
   notes: ['notes', 'note', 'comment', 'comments', 'reference', 'ref'],
 }
 
@@ -338,7 +338,6 @@ function cell(row: CsvRow, header: string): string {
 export function validateRows(parsed: ParsedCsv, config: MappingConfig, ctx: ValidationContext): ValidationResult {
   const { mapping, amountMode, signConvention, dateFormat } = config
   const activeAccounts = ctx.accounts.filter((a) => a.status === 'active')
-  const accountByName = new Map(activeAccounts.map((a) => [a.name.trim().toLowerCase(), a]))
   const accountById = new Map(activeAccounts.map((a) => [a.id, a]))
   const categoryByName = new Map(
     ctx.categories.filter((c) => c.status === 'active').map((c) => [c.name.trim().toLowerCase(), c]),
@@ -360,11 +359,15 @@ export function validateRows(parsed: ParsedCsv, config: MappingConfig, ctx: Vali
     let account: Account | null = defaultAccount
     const accountText = cell(raw, mapping.account).trim()
     if (mapping.account && accountText) {
-      const match = accountByName.get(accountText.toLowerCase())
+      const numericId = Number(accountText)
+      const match =
+        accountById.get(accountText) ??
+        (Number.isFinite(numericId) ? accountById.get(String(numericId)) : undefined)
       if (match) account = match
-      else if (defaultAccount) rowWarnings.push(`Account "${accountText}" not found; using ${defaultAccount.name}.`)
-      else {
-        fail('account', `Account "${accountText}" does not match any active account.`)
+      else if (defaultAccount) {
+        rowWarnings.push(`Account id "${accountText}" not found; using ${defaultAccount.name}.`)
+      } else {
+        fail('account', `Account id "${accountText}" does not match any active account.`)
         return
       }
     }

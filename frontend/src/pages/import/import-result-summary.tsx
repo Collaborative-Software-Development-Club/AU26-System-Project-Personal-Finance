@@ -97,7 +97,7 @@ function JobResult({ job, onImportAnother }: { job: ImportJob; onImportAnother()
         </div>
         <ImportStatusBadge status={job.status} />
         <p className="max-w-md text-xs text-muted-foreground">
-          These counts come from the simulated import and are stored in this browser only. A real import would report server-side results here.
+          These counts come from the server after the import finished.
         </p>
       </div>
 

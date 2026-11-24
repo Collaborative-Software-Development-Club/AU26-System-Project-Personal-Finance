@@ -5,6 +5,7 @@ interface CsvRow {
 interface ChunkPayload {
   upload_id: string
   chunk_index: number
+  filename: string
   rows: CsvRow[]
 }
 
@@ -13,7 +14,7 @@ export function generateIdempotencyKey(): string {
   return crypto.randomUUID();
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
 
 
@@ -61,6 +62,7 @@ export async function uploadCSV(file: File): Promise<any> {
         const payload: ChunkPayload = {
           upload_id: crypto.randomUUID(),
           chunk_index: 0,
+          filename: file.name,
           rows: parsedRows,
         }
 
@@ -91,6 +93,7 @@ export async function uploadFile(payload: ChunkPayload): Promise<any> {
 
   const response = await fetch(`${API_BASE_URL}/upload`, {
     method: 'POST',
+    credentials: 'include',
     headers : {
       'Content-Type': 'application/json',
       'Idempotency-Key': idempotencyKey,
